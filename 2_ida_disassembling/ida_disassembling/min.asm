@@ -1,18 +1,18 @@
-.686
-.MODEL FLAT 
-.STACK         
-.DATA   
+;.686
+;.MODEL FLAT 
+;.STACK         
+;.DATA   
 .CODE
 ;ecx - first arg
 ;edx - second arg
 ;eax - return value
-?min@@YIHHH@Z PROC
-	mov eax, ecx
-	cmp ecx, edx
-	cmovg eax, edx ;if jd then do mov
+min PROC
+	mov rax, rcx
+	cmp rcx, rdx
+	cmovg rax, rdx ;if jd then do mov
 	ret
-?min@@YIHHH@Z ENDP
+min ENDP
 
-PUBLIC ?min@@YIHHH@Z
+PUBLIC min
 
 END

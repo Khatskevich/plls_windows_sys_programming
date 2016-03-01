@@ -3,7 +3,7 @@
 
 #include "stdafx.h"
 
-extern int __fastcall min(int a, int b);
+extern "C" int __fastcall min(int a, int b);
 
 int main()
 {
