@@ -149,7 +149,8 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="redirect_input.cpp" />
+    <ClCompile Include="client.cpp" />
+    <ClCompile Include="server.cpp" />
     <ClCompile Include="remote_terminal.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
