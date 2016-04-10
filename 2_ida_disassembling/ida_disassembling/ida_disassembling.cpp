@@ -105,7 +105,12 @@ int main(int argc, TCHAR *argv[])
 		image_file_header->NumberOfSymbols, 
 		image_file_header->SizeOfOptionalHeader );
 	// Close the file mapping object and the open file
-
+	IMAGE_SECTION_HEADER* sect_head = (IMAGE_SECTION_HEADER*)( (char*)(image_file_header + 1)+image_file_header->SizeOfOptionalHeader);
+	for (i = 0; i < image_file_header->NumberOfSections; i++) {
+		printf("%-8.8s: rawsize %u\n",
+			sect_head[i].Name,
+			sect_head[i].SizeOfRawData);
+	}
 	bFlag = UnmapViewOfFile(lpMapAddress);
 	bFlag = CloseHandle(hMapFile); // close the file mapping object
 
