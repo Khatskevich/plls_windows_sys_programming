@@ -36,6 +36,7 @@ SOCKET ClientSocket = INVALID_SOCKET;
 
 int __cdecl server(void)
 {
+	printf("Starting server on port : %s\n", DEFAULT_PORT);
 	WSADATA wsaData;
 	int iResult;
 
