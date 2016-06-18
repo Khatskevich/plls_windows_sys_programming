@@ -37,7 +37,66 @@ IMAGE_DATA_DIRECTORY* getImageDataDirectories64(char* file) {
 		((char*)&optional_header->NumberOfRvaAndSizes + sizeof(optional_header->NumberOfRvaAndSizes));
 }
 
+IMAGE_SECTION_HEADER* getSectionByName(char* file, char* name) {
+	IMAGE_FILE_HEADER* image_file_header = getImageFileHeader(file);
+	IMAGE_SECTION_HEADER* sections = getImageSectionHeaders(file);
+	for (int i = 0; i < image_file_header->NumberOfSections; i++) {
+		for (int j = 0; j <= strlen(name)-1; j++) {
+			if (j == strlen(name)-1) {
+				return sections + i;
+			}
+			if (sections[i].Name[j] != name[j]) {
+				break;
+			}
+		}
+	}
+	return NULL;
+}
 
+
+char* getAddrFromRVA(char* file, int rvaddr)
+{
+	IMAGE_SECTION_HEADER *phead;
+	IMAGE_FILE_HEADER* image_file_header = getImageFileHeader(file);
+	int offset;
+	for (int i = 0; i < image_file_header->NumberOfSections; i++) {
+		phead = (IMAGE_SECTION_HEADER*)(getImageSectionHeaders(file) + i);
+		offset = rvaddr - phead->VirtualAddress;
+		if (offset >= 0 && offset < phead->SizeOfRawData) {
+			return file + phead->PointerToRawData + offset;
+		}
+	}
+	return NULL;
+}
+
+#define UNW_FLAG_EHANDLER  0x01
+#define UNW_FLAG_UHANDLER  0x02
+#define UNW_FLAG_CHAININFO 0x04
+
+typedef union _UNWIND_CODE {
+	struct {
+		BYTE CodeOffset;
+		BYTE UnwindOp : 4;
+		BYTE OpInfo : 4;
+	};
+	USHORT FrameOffset;
+} UNWIND_CODE, *PUNWIND_CODE;
+
+typedef struct _UNWIND_INFO {
+	BYTE Version : 3;
+	BYTE Flags : 5;
+	BYTE SizeOfProlog;
+	BYTE CountOfCodes;
+	BYTE FrameRegister : 4;
+	BYTE FrameOffset : 4;
+	UNWIND_CODE UnwindCode[1];
+	/*  UNWIND_CODE MoreUnwindCode[((CountOfCodes + 1) & ~1) - 1];
+	*   union {
+	*       OPTIONAL ULONG ExceptionHandler;
+	*       OPTIONAL ULONG FunctionEntry;
+	*   };
+	*   OPTIONAL ULONG ExceptionData[]; */
+} UNWIND_INFO, *PUNWIND_INFO;
 
 
 int main(int argc, TCHAR *argv[])
@@ -91,6 +150,66 @@ int main(int argc, TCHAR *argv[])
 		_tprintf(TEXT("offset = %d\n"), ((char*)data_directories - (char*)optional_header));
 		for (i = 0; i < data_directories_num; i++) {
 			_tprintf(TEXT("%d virt addr = %x size = %x \n"), i, data_directories[i].VirtualAddress, data_directories[i].Size);
+		}
+
+		// IMPORTS TABLE
+		if (data_directories[1].Size > 0) {
+			union THUNK_DATAXX {
+				ULONGLONG u64;
+				UINT u32;
+			} *pthunk;
+			IMAGE_IMPORT_BY_NAME *pname;
+			ULONG64 sz = image_file_header->Machine == IMAGE_FILE_MACHINE_AMD64 ? 8 : 4;
+			IMAGE_IMPORT_DESCRIPTOR* pentry = (IMAGE_IMPORT_DESCRIPTOR*)getAddrFromRVA(pData, data_directories[1].VirtualAddress);
+			int i = 0;
+
+			for (int j = 0; pentry[j].Characteristics != 0; j++) {
+				printf("dll name: %s\n", getAddrFromRVA(pData, pentry[j].Name));
+
+				i = 0;
+				while (1) {
+					pthunk = (THUNK_DATAXX*)getAddrFromRVA(pData, pentry[j].OriginalFirstThunk + i * sz);
+					if (pthunk->u32 == 0)
+						break;
+					if ((pthunk->u64 & (1ULL << (sz * 8 - 1)))) //Check for ordinal bit
+						_tprintf(_T("  function: %d\n"), pthunk->u32 & 0xffff);
+					else {
+						pname = (IMAGE_IMPORT_BY_NAME*)getAddrFromRVA(pData, pthunk->u32);
+						printf("  function: %s\n", pname->Name);
+					}
+					i++;
+				}
+			}
+		}
+		// EXPORTS TABLE
+		if (data_directories[0].Size > 0){
+			IMAGE_EXPORT_DIRECTORY* exp_dir = (IMAGE_EXPORT_DIRECTORY*)getAddrFromRVA(pData, data_directories[0].VirtualAddress);
+			int i = 0;
+			DWORD *nameTable, *funcTable;
+			WORD *ordinalTable;
+
+			printf("dll name: %s, functions: %d, names: %d\n", getAddrFromRVA(pData, exp_dir->Name),
+				exp_dir->NumberOfFunctions, exp_dir->NumberOfNames);
+
+			nameTable = (DWORD*)getAddrFromRVA(pData, exp_dir->AddressOfNames);
+			funcTable = (DWORD*)getAddrFromRVA(pData, exp_dir->AddressOfFunctions);
+			ordinalTable = (WORD*)getAddrFromRVA(pData, exp_dir->AddressOfNameOrdinals);
+			for (i = 0; i < exp_dir->NumberOfNames; i++) {
+				printf("  %s: ordinal %d, rva 0x%x\n", getAddrFromRVA(pData, nameTable[i]),
+					ordinalTable[i] + exp_dir->Base, funcTable[ordinalTable[i]]);
+			}
+		}
+		// EXCEPTIONS TABLE
+		if (data_directories[IMAGE_DIRECTORY_ENTRY_EXCEPTION].Size > 0) {
+			RUNTIME_FUNCTION *pdir = (RUNTIME_FUNCTION*)getAddrFromRVA(pData, data_directories[IMAGE_DIRECTORY_ENTRY_EXCEPTION].VirtualAddress);
+			int i = 0;
+			for (i = 0; i < data_directories[IMAGE_DIRECTORY_ENTRY_EXCEPTION].Size / sizeof(RUNTIME_FUNCTION); i++) {
+				UNWIND_INFO *uinfo = (UNWIND_INFO*)getAddrFromRVA(pData, (pdir++)->UnwindInfoAddress);
+				if (uinfo != NULL && uinfo->Flags == UNW_FLAG_EHANDLER) {
+					ULONG handler = *(ULONG*)&uinfo->UnwindCode[((uinfo->CountOfCodes + 1) & ~1)];
+					printf("func (0x%x-0x%x): 0x%x\n", pdir->BeginAddress, pdir->EndAddress, handler);
+				}
+			}
 		}
 	}
 	map.UnmapFile();
