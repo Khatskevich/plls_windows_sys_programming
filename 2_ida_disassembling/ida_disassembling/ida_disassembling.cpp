@@ -20,21 +20,42 @@ IMAGE_SECTION_HEADER* getImageSectionHeaders(char* file) {
 	IMAGE_FILE_HEADER * image_file_header = getImageFileHeader(file);
 	return (IMAGE_SECTION_HEADER*)((char*)(image_file_header + 1) + image_file_header->SizeOfOptionalHeader);
 }
+
+int isMachine64(char* file) {
+	IMAGE_FILE_HEADER* image_file_header = getImageFileHeader(file);
+	return image_file_header->Machine == IMAGE_FILE_MACHINE_AMD64 ? 1 : 0;
+}
+
 IMAGE_OPTIONAL_HEADER64* getOptionalHeader64(char* file) {
 	IMAGE_FILE_HEADER * image_file_header = getImageFileHeader(file);
-	if (image_file_header->Machine != MAXHINE_64_CONST) {
+	if (!isMachine64(file) || image_file_header->SizeOfOptionalHeader == 0) {
 		return NULL;
 	}
 	return (IMAGE_OPTIONAL_HEADER64 *)&image_file_header[1];
 }
 
-IMAGE_DATA_DIRECTORY* getImageDataDirectories64(char* file) {
-	IMAGE_OPTIONAL_HEADER64 * optional_header = getOptionalHeader64(file);
-	if (optional_header == NULL) {
+IMAGE_OPTIONAL_HEADER32* getOptionalHeader32(char* file) {
+	IMAGE_FILE_HEADER * image_file_header = getImageFileHeader(file);
+	if (isMachine64(file) || image_file_header->SizeOfOptionalHeader==0) {
 		return NULL;
 	}
-	return (IMAGE_DATA_DIRECTORY *)
-		((char*)&optional_header->NumberOfRvaAndSizes + sizeof(optional_header->NumberOfRvaAndSizes));
+	return (IMAGE_OPTIONAL_HEADER32 *)&image_file_header[1];
+}
+
+IMAGE_DATA_DIRECTORY* getImageDataDirectories(char* file) {
+	IMAGE_FILE_HEADER * image_file_header = getImageFileHeader(file);
+	if (image_file_header->SizeOfOptionalHeader == 0)
+		return NULL;
+	if (isMachine64(file)) {
+		IMAGE_OPTIONAL_HEADER64 * optional_header = getOptionalHeader64(file);
+		return (IMAGE_DATA_DIRECTORY *)
+			((char*)&optional_header->NumberOfRvaAndSizes + sizeof(optional_header->NumberOfRvaAndSizes));
+	}
+	else {
+		IMAGE_OPTIONAL_HEADER32 * optional_header = getOptionalHeader32(file);
+		return (IMAGE_DATA_DIRECTORY *)
+			((char*)&optional_header->NumberOfRvaAndSizes + sizeof(optional_header->NumberOfRvaAndSizes));
+	}
 }
 
 IMAGE_SECTION_HEADER* getSectionByName(char* file, char* name) {
@@ -99,7 +120,7 @@ typedef struct _UNWIND_INFO {
 } UNWIND_INFO, *PUNWIND_INFO;
 
 
-int main(int argc, TCHAR *argv[])
+int main(int argc, _TCHAR *argv[])
 {
 
 	IMAGE_DOS_HEADER* image_header;
@@ -108,8 +129,11 @@ int main(int argc, TCHAR *argv[])
 	char* iData;            // on success contains the first int of data
 
 	Mapper map;
-
-	if (!map.MapFile(TEXT("C:/plls_windows_sys_programming/2_ida_disassembling/x64/Debug/ida_disassembling.exe"))) {
+	if (argc == 1) {
+		_tprintf(TEXT("Wrong parameters number"));
+		return 0;
+	}
+	if (!map.MapFile(argv[1])) {
 		_tprintf(TEXT("Error mapping file"));
 		return 0;
 	}
@@ -118,6 +142,7 @@ int main(int argc, TCHAR *argv[])
 	iData = (char *)pData;
 	image_header = getImageDosHeader(pData); 
 
+	// IMAGE HEADER
 	_tprintf(TEXT("1 = %c , 2 = %c e_lfanew = %x\n"),
 		iData[0],
 		iData[1],
@@ -127,27 +152,37 @@ int main(int argc, TCHAR *argv[])
 		iData[image_header->e_lfanew + 1],
 		iData[image_header->e_lfanew + 2],
 		iData[image_header->e_lfanew + 3]);
+	// IMAGE_FILE_HEADER
 	IMAGE_FILE_HEADER* image_file_header = getImageFileHeader(pData);
 	_tprintf(TEXT("machine = %x , NumberOfSections = %d, NumberOfSymbols = %d , SizeOfOptionalHeader = %d\n"),
 		image_file_header->Machine,
 		image_file_header->NumberOfSections, 
 		image_file_header->NumberOfSymbols, 
 		image_file_header->SizeOfOptionalHeader );
-	// Close the file mapping object and the open file
+	// SECTIONS
 	IMAGE_SECTION_HEADER* sect_head = getImageSectionHeaders(pData);
 	for (i = 0; i < image_file_header->NumberOfSections; i++) {
 		printf("%-8.8s: rawsize %u\n",
 			sect_head[i].Name,
 			sect_head[i].SizeOfRawData);
 	}
-	IMAGE_OPTIONAL_HEADER64 * optional_header = getOptionalHeader64(pData);
-	if ( optional_header != NULL) {
+	// OPTIONAL HEADER
+	IMAGE_OPTIONAL_HEADER64 * optional_header64 = getOptionalHeader64(pData);
+	IMAGE_OPTIONAL_HEADER32 * optional_header32 = getOptionalHeader32(pData);
+	int data_directories_num = optional_header64->NumberOfRvaAndSizes;
+	if (optional_header64 != NULL) {
 		_tprintf(TEXT("magic = %x \n"),
-			optional_header->Magic);
-		int data_directories_num = optional_header->NumberOfRvaAndSizes;
-		IMAGE_DATA_DIRECTORY * data_directories = getImageDataDirectories64(pData);
+			optional_header64->Magic);
+		data_directories_num = optional_header64->NumberOfRvaAndSizes;
+	}
+	if (optional_header32 != NULL) {
+		_tprintf(TEXT("magic = %x \n"),
+			optional_header32->Magic);
+		data_directories_num = optional_header32->NumberOfRvaAndSizes;
+	}
+	{
+		IMAGE_DATA_DIRECTORY * data_directories = getImageDataDirectories(pData);
 		_tprintf(TEXT("num of data directories = %d\n"), data_directories_num);
-		_tprintf(TEXT("offset = %d\n"), ((char*)data_directories - (char*)optional_header));
 		for (i = 0; i < data_directories_num; i++) {
 			_tprintf(TEXT("%d virt addr = %x size = %x \n"), i, data_directories[i].VirtualAddress, data_directories[i].Size);
 		}
@@ -204,7 +239,7 @@ int main(int argc, TCHAR *argv[])
 			RUNTIME_FUNCTION *pdir = (RUNTIME_FUNCTION*)getAddrFromRVA(pData, data_directories[IMAGE_DIRECTORY_ENTRY_EXCEPTION].VirtualAddress);
 			int i = 0;
 			for (i = 0; i < data_directories[IMAGE_DIRECTORY_ENTRY_EXCEPTION].Size / sizeof(RUNTIME_FUNCTION); i++) {
-				UNWIND_INFO *uinfo = (UNWIND_INFO*)getAddrFromRVA(pData, (pdir++)->UnwindInfoAddress);
+				UNWIND_INFO *uinfo = (UNWIND_INFO*)getAddrFromRVA(pData, (pdir+i)->UnwindInfoAddress);
 				if (uinfo != NULL && uinfo->Flags == UNW_FLAG_EHANDLER) {
 					ULONG handler = *(ULONG*)&uinfo->UnwindCode[((uinfo->CountOfCodes + 1) & ~1)];
 					printf("func (0x%x-0x%x): 0x%x\n", pdir->BeginAddress, pdir->EndAddress, handler);
