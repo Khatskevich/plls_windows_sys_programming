@@ -173,7 +173,12 @@ VOID SvcInit(DWORD dwArgc, LPTSTR *lpszArgv)
 	// Report running status when initialization is complete.
 
 	ReportSvcStatus(SERVICE_RUNNING, NO_ERROR, 0);
+<<<<<<< HEAD
 	
+=======
+	while(true)
+	server();
+>>>>>>> 6c00fdf5b45fcef8d537346ab6db5186ad97d0ee
 	// TO_DO: Perform work until service stops.
 	while (1)
 	{

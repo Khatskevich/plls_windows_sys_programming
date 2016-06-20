@@ -42,6 +42,7 @@ int __cdecl server_loop() {
 
 int __cdecl server(void)
 {
+	printf("Starting server on port : %s\n", DEFAULT_PORT);
 	WSADATA wsaData;
 	int iResult;
 

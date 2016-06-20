@@ -26,6 +26,8 @@ HANDLE sock_handle;
 
 int __cdecl client(char* address)
 {
+	printf("Starting client ...\n");
+	printf("Connecting to %s %s ...\n", address, DEFAULT_PORT);
 	WSADATA wsaData;
 	SOCKET ConnectSocket = INVALID_SOCKET;
 	struct addrinfo *result = NULL,
