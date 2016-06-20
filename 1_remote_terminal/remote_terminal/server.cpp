@@ -25,14 +25,20 @@ HANDLE g_hInputFile = NULL;
 
 void CreateChildProcess(void);
 DWORD WINAPI WriteToPipe(LPVOID);
-DWORD WINAPI ReadFromPipe(void);
+DWORD WINAPI ReadFromPipe(LPVOID);
 static void ErrorExit(PTSTR);
 
 //redirected header
-
+int stopConnection();
 SOCKET ListenSocket = INVALID_SOCKET;
 SOCKET ClientSocket = INVALID_SOCKET;
+int __cdecl server_loop(void);
+int __cdecl server(void);
 
+int __cdecl server_loop() {
+    server();
+	return 0;
+}
 
 int __cdecl server(void)
 {
@@ -89,7 +95,7 @@ int __cdecl server(void)
 	}
 
 	freeaddrinfo(result);
-
+	while (1) {
 	iResult = listen(ListenSocket, SOMAXCONN);
 	if (iResult == SOCKET_ERROR) {
 		printf("listen failed with error: %d\n", WSAGetLastError());
@@ -98,6 +104,8 @@ int __cdecl server(void)
 		return 1;
 	}
 
+
+	
 	// Accept a client socket
 	ClientSocket = accept(ListenSocket, NULL, NULL);
 	if (ClientSocket == INVALID_SOCKET) {
@@ -130,31 +138,39 @@ int __cdecl server(void)
 		int Data_Of_Thread_1 = 1;
 		HANDLE Handle_Of_Thread_1 = 0;
 		Handle_Of_Thread_1 = CreateThread(NULL, 0,
-			WriteToPipe , NULL, 0, NULL);
+			ReadFromPipe, NULL, 0, NULL);
 		if (Handle_Of_Thread_1 == NULL)
 			ExitProcess(Data_Of_Thread_1);
 
 
 		g_hInputFile = GetStdHandle(STD_INPUT_HANDLE);
-		ReadFromPipe();
+		WriteToPipe(NULL);
 
 		WaitForSingleObject(Handle_Of_Thread_1, 0);
 		CloseHandle(Handle_Of_Thread_1);
 		// shutdown the connection since we're done
-		iResult = shutdown(ClientSocket, SD_SEND);
-		if (iResult == SOCKET_ERROR) {
-			printf("shutdown failed with error: %d\n", WSAGetLastError());
-			closesocket(ClientSocket);
-			WSACleanup();
-			return 1;
-		}
-
-		// cleanup
-		closesocket(ClientSocket);
+		stopConnection();
+	}
+	
 	}
 	WSACleanup();
-
 	return 0;
+}
+
+
+
+int stopConnection() {
+	int iResult;
+	iResult = shutdown(ClientSocket, SD_SEND);
+	if (iResult == SOCKET_ERROR) {
+		printf("shutdown failed with error: %d\n", WSAGetLastError());
+		closesocket(ClientSocket);
+		WSACleanup();
+		return 1;
+	}
+
+	// cleanup
+	closesocket(ClientSocket);
 }
 
 
@@ -230,7 +246,7 @@ static DWORD WINAPI WriteToPipe(LPVOID val)
 	return 0;
 }
 
-static DWORD WINAPI ReadFromPipe(void)
+static DWORD WINAPI ReadFromPipe(LPVOID)
 
 // Read output from the child process's pipe for STDOUT
 // and write to the parent process's pipe for STDOUT. 
@@ -286,4 +302,3 @@ static void ErrorExit(PTSTR lpszFunction)
 	LocalFree(lpDisplayBuf);
 	ExitProcess(1);
 }
-

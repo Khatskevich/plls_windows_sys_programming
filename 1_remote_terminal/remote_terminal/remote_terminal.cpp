@@ -9,7 +9,7 @@
 
 int run_child_with_redirected_io(int argc, TCHAR *argv[]);
 
-int __cdecl server(void);
+int __cdecl server_loop(void);
 int __cdecl client(char *);
 
 
@@ -28,7 +28,7 @@ int _tmain(int argc, TCHAR *argv[])
 		StringCchCopy(szSvcName, 80, argv[2]);
 	
 	if (argc == 2 && lstrcmpi(szCommand, TEXT("server")) == 0) {
-		server();
+		server_loop();
 	}
 	else if (argc == 3 && lstrcmpi(szCommand, TEXT("client")) == 0) {
 		char c_szText[100];

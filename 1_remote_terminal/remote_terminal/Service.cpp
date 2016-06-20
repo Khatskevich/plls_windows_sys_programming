@@ -173,17 +173,12 @@ VOID SvcInit(DWORD dwArgc, LPTSTR *lpszArgv)
 	// Report running status when initialization is complete.
 
 	ReportSvcStatus(SERVICE_RUNNING, NO_ERROR, 0);
-	server();
+	
 	// TO_DO: Perform work until service stops.
 	while (1)
 	{
 		// Check whether to stop the service.
-		
-		WaitForSingleObject(ghSvcStopEvent, INFINITE);
-
-		ReportSvcStatus(SERVICE_STOPPED, NO_ERROR, 0);
-		SvcReportEvent(TEXT("hello from service"));
-		return;
+		server();
 	}
 }
 
