@@ -9,50 +9,6 @@
 ; eax - return value
 
 min2 PROC
-;	mov eax, ecx
-;	cmp ecx, edx
-;	cmovg eax, edx ; predicative exec
-;	lea eax, [eip]
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
 	call test_addr
 	mov r12, rsp
 	sub rsp, 28h
@@ -62,8 +18,9 @@ min2 PROC
 	push rax
 	mov rcx, rax
 	mov rdx, [rax + 16]
+	sub rsp, 60h
 	call rdx
-	
+	add rsp, 60h
 	pop rbx
 	pop rbx 
 	mov rsp, r12

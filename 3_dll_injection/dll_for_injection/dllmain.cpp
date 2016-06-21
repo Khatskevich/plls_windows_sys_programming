@@ -2,7 +2,7 @@
 #include <windows.h>
 
 struct sc_data_t {
-	char libName[50];
+	char libName[16];
 	void* ploadLibrary;
 	UINT32 a, b, c;
 	UINT32 reserved;
@@ -87,10 +87,11 @@ void* FindShellcodeData()
 			Context.Rbp,
 			Context.Rsp);
 
-		pData = Context.Rsp;
+		pData = Context.Rip;
 		printf("\n");
 	}
-	return *((char**)(pData + 0x20));
+	printf("%p\n", *((void**)(Context.Rsp+ 0x60)));
+	return (void*)(pData - 0x28);
 }
 
 BOOL WINAPI DllMain(
