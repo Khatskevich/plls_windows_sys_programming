@@ -1,0 +1,104 @@
+Microsoft (R) Macro Assembler (x64) Version 14.00.23506.0   06/21/16 02:54:57
+code.asm						     Page 1 - 1
+
+
+				;.686
+				;.MODEL FLAT
+				;.STACK
+				;.DATA
+ 00000000			.CODE
+
+				; ecx - 1 arg
+				; edx - 2 arg
+				; eax - return value
+
+ 00000000			min2 PROC
+				;	mov eax, ecx
+				;	cmp ecx, edx
+				;	cmovg eax, edx ; predicative exec
+				;	lea eax, [eip]
+ 00000000  90				nop
+ 00000001  90				nop
+ 00000002  90				nop
+ 00000003  90				nop
+ 00000004  90				nop
+ 00000005  90				nop
+ 00000006  90				nop
+ 00000007  90				nop
+ 00000008  90				nop
+ 00000009  90				nop
+ 0000000A  90				nop
+ 0000000B  90				nop
+ 0000000C  90				nop
+ 0000000D  90				nop
+ 0000000E  90				nop
+ 0000000F  90				nop
+ 00000010  90				nop
+ 00000011  90				nop
+ 00000012  90				nop
+ 00000013  90				nop
+ 00000014  90				nop
+ 00000015  90				nop
+ 00000016  90				nop
+ 00000017  90				nop
+ 00000018  90				nop
+ 00000019  90				nop
+ 0000001A  90				nop
+ 0000001B  90				nop
+ 0000001C  90				nop
+ 0000001D  90				nop
+ 0000001E  90				nop
+ 0000001F  90				nop
+ 00000020  90				nop
+ 00000021  90				nop
+ 00000022  90				nop
+ 00000023  90				nop
+ 00000024  90				nop
+ 00000025  90				nop
+ 00000026  90				nop
+ 00000027  90				nop
+ 00000028  E8 00000020			call test_addr
+ 0000002D  4C/ 8B E4			mov r12, rsp
+ 00000030  48/ 83 EC 28			sub rsp, 28h
+ 00000034  48/ 83 E4 F0			and rsp, 0fffffffffffffff0h
+ 00000038  53				push rbx
+ 00000039  48/ 83 E8 28			sub rax, 40
+ 0000003D  50				push rax
+ 0000003E  48/ 8B C8			mov rcx, rax
+ 00000041  48/ 8B 50 10			mov rdx, [rax + 16]
+ 00000045  FF D2			call rdx
+					
+ 00000047  5B				pop rbx
+ 00000048  5B				pop rbx 
+ 00000049  49/ 8B E4			mov rsp, r12
+ 0000004C  C3				ret
+ 0000004D			test_addr:
+ 0000004D  48/ 8B 04 24			mov rax, [rsp]
+ 00000051  48/ 83 E8 05			sub rax, 5
+ 00000055  C3				ret
+ 00000056			min2 ENDP
+
+				PUBLIC min2
+
+				END
+Microsoft (R) Macro Assembler (x64) Version 14.00.23506.0   06/21/16 02:54:57
+code.asm						     Symbols 2 - 1
+
+
+
+
+Procedures, parameters, and locals:
+
+                N a m e                 Type     Value    Attr
+
+min2 . . . . . . . . . . . . . .	P 	 00000000 _TEXT	Length= 00000056 Public
+  test_addr  . . . . . . . . . .	L 	 0000004D _TEXT	
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+
+	   0 Warnings
+	   0 Errors

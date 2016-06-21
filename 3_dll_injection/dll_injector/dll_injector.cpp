@@ -1,3 +1,7 @@
+// dll_injector.cpp : Defines the entry point for the console application.
+//
+
+
 #include "stdafx.h"
 #include <Windows.h>
 #include <winternl.h>
@@ -25,14 +29,15 @@ void WaitForProcess(PROCESS_INFORMATION pi);
 void* RemoteAllocateMemory(PROCESS_INFORMATION pi, SIZE_T size);
 BOOL RemoteFreeMemory(PROCESS_INFORMATION pi, void* baseAddr);
 SIZE_T RemoteWriteMemory(PROCESS_INFORMATION pi, void* baseAddr, void* dataAddr, SIZE_T dataLen);
+SIZE_T RemoteReadMemory(PROCESS_INFORMATION pi, void* baseAddr, void* dataAddr, SIZE_T dataLen);
 HANDLE RemoteCreateThread(PROCESS_INFORMATION pi, void* addr);
 
 void* FindKernel32AddressX86(PROCESS_INFORMATION pi); // ok for 32(main) - 32(susp)
 void* FindKernel32AddressX64(PROCESS_INFORMATION pi); // ok for 64 - looking for argv
-void* FindKernel32AddressSelf(PROCESS_INFORMATION pi); // ok for self, fail for remote (x64)
+void* FindKernel32AddressSelf(); // ok for self, fail for remote (x64)
 
 struct sc_data_t {
-	char libName[16];
+	char libName[50];
 	void* ploadLibrary;
 	UINT32 a, b, c;
 	UINT32 reserved;
@@ -40,7 +45,7 @@ struct sc_data_t {
 
 char sc_bytecode[] = { 0xe8, 0x28, 0x0, 0x0, 0x0, 0x4c, 0x8b, 0xe4, 0x48, 0x83, 0xec, 0x28, 0x48, 0x83,
 0xe4, 0xf0, 0x53, 0x48, 0x83, 0xe8, 0x28, 0x50, 0x48, 0x8b, 0xc8, 0x48, 0x8b, 0x50, 0x10, 0x48, 0x83,
-0xec, 0x28, 0xff, 0xd2, 0x48, 0x83, 0xc4, 0x28, 0x5b, 0x5b, 0x49, 0x8b, 0xe4, 0xc3, 0x48, 0x8b, 0x4, 0x24, 0x48, 0x83, 0xe8, 0x5, 0xc3 };
+0xec, 0x20, 0xff, 0xd2, 0x48, 0x83, 0xc4, 0x20, 0x5b, 0x5b, 0x49, 0x8b, 0xe4, 0xc3, 0x48, 0x8b, 0x4, 0x24, 0x48, 0x83, 0xe8, 0x5, 0xc3 };
 
 int _tmain(int argc, _TCHAR* argv[])
 {
@@ -67,13 +72,28 @@ int _tmain(int argc, _TCHAR* argv[])
 		printf("Allocate remote memory error: 0x%x \n", GetLastError());
 		goto err0;
 	}
+	printf("Baseaddr in simple prog%p \n", baseAddr);
+
+	DWORD ErrorCode;
+	BOOL Success;
+	MEMORY_PRIORITY_INFORMATION MemPrio;
+
+	//
+	// Query process memory priority.
+	//
+
+	HANDLE c_p_h = GetCurrentProcess();
+	void* addr = FindKernel32AddressSelf();
+	printf("k32 addr = %p\n", addr);
+	//LoadLibrary(TEXT("art.dll"));
 
 	sc_data_t sc_data;
-	strcpy_s(sc_data.libName, "targetdll.dll");
+	strcpy_s(sc_data.libName, "dll_for_injection.dll");
 	printf("%s\n", sc_data.libName);
-	sc_data.ploadLibrary = (void*)0x000007FD9F883ABC;
-	sc_data.a = 6;
-	sc_data.b = 4;
+	//sc_data.ploadLibrary = (void*)0x000007FD9F883ABC;
+	sc_data.ploadLibrary = (void*)0x7FF90AB4C610;
+	sc_data.a = 5;
+	sc_data.b = 7;
 	sc_data.c = 0;
 
 	// writing shellcode to remote process
@@ -81,8 +101,6 @@ int _tmain(int argc, _TCHAR* argv[])
 	printf("Written bytes %d \n", ret);
 	ret = RemoteWriteMemory(pi, (char*)baseAddr + sizeof(sc_data_t), &sc_bytecode, sizeof(sc_bytecode));
 	printf("Written bytes %d \n", ret);
-
-	//HANDLE rs = LoadLibraryA(sc_data.libName);
 
 	// creating remote thread for nop-shellode execution
 	HANDLE hThr = RemoteCreateThread(pi, (char*)baseAddr + sizeof(sc_data_t));
@@ -97,8 +115,13 @@ int _tmain(int argc, _TCHAR* argv[])
 	ret = CloseHandle(hThr);
 	printf("CH ret %d \n", ret);
 
+	sc_data_t sc_new_data;
+	ret = RemoteReadMemory(pi, baseAddr, &sc_new_data, sizeof(sc_data_t));
+	printf("Read bytes %d \n", ret);
+	printf("New values: a = %d, b = %d, c = %d \n", sc_new_data.a, sc_new_data.b, sc_new_data.c);
+
 	// find kernel32.dll base address
-	void* kernel32Base = FindKernel32AddressSelf(pi);
+	void* kernel32Base = FindKernel32AddressSelf();
 	printf("Kernel32 base address: %p \n", kernel32Base);
 	printf("LoadLibrary: 0x%p\n", &LoadLibraryA);
 
@@ -140,6 +163,14 @@ SIZE_T RemoteWriteMemory(PROCESS_INFORMATION pi, void* baseAddr, void* dataAddr,
 	if (!WriteProcessMemory(pi.hProcess, baseAddr, dataAddr, dataLen, &written))
 		printf("Error writing memory to remote process: 0x%x \n", GetLastError());
 	return written;
+}
+
+SIZE_T RemoteReadMemory(PROCESS_INFORMATION pi, void* baseAddr, void* dataAddr, SIZE_T dataLen)
+{
+	SIZE_T read = 0;
+	if (!ReadProcessMemory(pi.hProcess, baseAddr, dataAddr, dataLen, &read))
+		printf("Error reading memory from remote process: 0x%x \n", GetLastError());
+	return read;
 }
 
 bool CreateSuspendedProcess(_TCHAR* cmd, PROCESS_INFORMATION* pi)
@@ -308,12 +339,11 @@ void* FindKernel32AddressX64(PROCESS_INFORMATION pi)
 	return NULL;
 }
 
-void* FindKernel32AddressSelf(PROCESS_INFORMATION pi)
+void* FindKernel32AddressSelf()
 {
 	FuncNtQueryInformationProcess ntqip = (FuncNtQueryInformationProcess)GetProcAddress(GetModuleHandle(TEXT("ntdll.dll")), "NtQueryInformationProcess");
 	PROCESS_BASIC_INFORMATION info;
 	HANDLE hProcess = GetCurrentProcess();
-	HANDLE hProcess1 = pi.hProcess;
 
 	NTSTATUS status = ntqip(
 		hProcess,					// ProcessHandle
