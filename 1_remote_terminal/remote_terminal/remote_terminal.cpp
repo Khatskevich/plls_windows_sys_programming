@@ -21,11 +21,8 @@ int _tmain(int argc, TCHAR *argv[])
 {
 
 	TCHAR szCommand[10];
-	TCHAR szSvcName[80];
 	if (argc >= 2)
 		StringCchCopy(szCommand, 10, argv[1]);
-	if (argc == 3)
-		StringCchCopy(szSvcName, 80, argv[2]);
 	
 	if (argc == 2 && lstrcmpi(szCommand, TEXT("server")) == 0) {
 		server_loop();
@@ -39,14 +36,12 @@ int _tmain(int argc, TCHAR *argv[])
 	{
 		SvcInstall();
 	}
-	else if (argc == 3 && lstrcmpi(szCommand, TEXT("start")) == 0)
-		DoStartSvc(szSvcName);
-	else if (argc == 3 && lstrcmpi(szCommand, TEXT("dacl")) == 0)
-		DoUpdateSvcDacl(szSvcName);
-	else if (argc == 3 && lstrcmpi(szCommand, TEXT("stop")) == 0)
-		DoStopSvc(szSvcName);
-	else if (argc == 3 && lstrcmpi(szCommand, TEXT("delete")) == 0)
-		DoDeleteSvc(szSvcName);
+	else if (argc == 2 && lstrcmpi(szCommand, TEXT("start")) == 0)
+		DoStartSvc(SVCNAME);
+	else if (argc == 2 && lstrcmpi(szCommand, TEXT("stop")) == 0)
+		DoStopSvc(SVCNAME);
+	else if (argc == 2 && lstrcmpi(szCommand, TEXT("delete")) == 0)
+		DoDeleteSvc(SVCNAME);
 	else
 	{
 		_tprintf(TEXT("Unknown command (%s)\n\n"), szCommand);
@@ -67,7 +62,6 @@ int _tmain(int argc, TCHAR *argv[])
 	{
 		SvcReportEvent(TEXT("StartServiceCtrlDispatcher"));
 	}
-	getchar();
 	return 0;
 }
 

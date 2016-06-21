@@ -33,14 +33,14 @@ int stopConnection();
 SOCKET ListenSocket = INVALID_SOCKET;
 SOCKET ClientSocket = INVALID_SOCKET;
 int __cdecl server_loop(void);
-int __cdecl server(void);
+DWORD WINAPI server(LPVOID);
 
 int __cdecl server_loop() {
-    server();
+    server(NULL);
 	return 0;
 }
 
-int __cdecl server(void)
+DWORD WINAPI server(LPVOID)
 {
 	printf("Starting server on port : %s\n", DEFAULT_PORT);
 	WSADATA wsaData;
@@ -150,7 +150,15 @@ int __cdecl server(void)
 		WaitForSingleObject(Handle_Of_Thread_1, 0);
 		CloseHandle(Handle_Of_Thread_1);
 		// shutdown the connection since we're done
-		stopConnection();
+		int iResult;
+		iResult = shutdown(ClientSocket, SD_SEND);
+		if (iResult == SOCKET_ERROR) {
+			printf("shutdown failed with error: %d\n", WSAGetLastError());
+			closesocket(ClientSocket);
+			WSACleanup();
+			return 1;
+		}
+		closesocket(ClientSocket);
 	}
 	
 	}
@@ -161,17 +169,12 @@ int __cdecl server(void)
 
 
 int stopConnection() {
-	int iResult;
-	iResult = shutdown(ClientSocket, SD_SEND);
-	if (iResult == SOCKET_ERROR) {
-		printf("shutdown failed with error: %d\n", WSAGetLastError());
-		closesocket(ClientSocket);
-		WSACleanup();
-		return 1;
-	}
+
 
 	// cleanup
+	closesocket(ListenSocket);
 	closesocket(ClientSocket);
+	return 0;
 }
 
 

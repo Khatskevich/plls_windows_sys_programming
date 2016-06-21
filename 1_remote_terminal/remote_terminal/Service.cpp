@@ -12,7 +12,7 @@
 
 
 
-int __cdecl server(void);
+DWORD WINAPI server(LPVOID);
 
 SERVICE_STATUS          gSvcStatus;
 SERVICE_STATUS_HANDLE   gSvcStatusHandle;
@@ -148,6 +148,9 @@ VOID WINAPI SvcMain(DWORD dwArgc, LPTSTR *lpszArgv)
 // Return value:
 //   None
 //
+
+int stopConnection();
+//
 VOID SvcInit(DWORD dwArgc, LPTSTR *lpszArgv)
 {
 	// TO_DO: Declare and set any required variables.
@@ -167,24 +170,36 @@ VOID SvcInit(DWORD dwArgc, LPTSTR *lpszArgv)
 	if (ghSvcStopEvent == NULL)
 	{
 		ReportSvcStatus(SERVICE_STOPPED, NO_ERROR, 0);
+		
 		return;
 	}
 
 	// Report running status when initialization is complete.
 
-	ReportSvcStatus(SERVICE_RUNNING, NO_ERROR, 0);
-<<<<<<< HEAD
-	
-=======
-	while(true)
-	server();
->>>>>>> 6c00fdf5b45fcef8d537346ab6db5186ad97d0ee
+		ReportSvcStatus(SERVICE_RUNNING, NO_ERROR, 0);
 	// TO_DO: Perform work until service stops.
-	while (1)
-	{
-		// Check whether to stop the service.
-		server();
-	}
+    // Check whether to stop the service.
+	
+		int Data_Of_Thread_1 = 1;
+		HANDLE Handle_Of_Thread_1 = 0;
+		Handle_Of_Thread_1 = CreateThread(NULL, 0,
+			server , NULL, 0, NULL);
+		if (Handle_Of_Thread_1 == NULL)
+			ExitProcess(Data_Of_Thread_1);
+
+
+		while (1)
+		{
+			// Check whether to stop the service.
+
+			WaitForSingleObject(ghSvcStopEvent, INFINITE);
+			stopConnection();
+			WaitForSingleObject(Handle_Of_Thread_1, 0);
+			CloseHandle(Handle_Of_Thread_1);
+			ReportSvcStatus(SERVICE_STOPPED, NO_ERROR, 0);
+			return;
+		}
+	
 }
 
 //
@@ -248,6 +263,7 @@ VOID WINAPI SvcCtrlHandler(DWORD dwCtrl)
 		// Signal the service to stop.
 
 		SetEvent(ghSvcStopEvent);
+		
 		ReportSvcStatus(gSvcStatus.dwCurrentState, NO_ERROR, 0);
 
 		return;

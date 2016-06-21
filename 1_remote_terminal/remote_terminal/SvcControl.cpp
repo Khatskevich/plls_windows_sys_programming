@@ -407,12 +407,11 @@ dacl_cleanup:
 // Return value:
 //   None
 //
-int stopConnection();
+
 VOID __stdcall DoStopSvc(TCHAR* szSvcName)
 {
 
-	stopConnection();
-	WSACleanup();
+	
 	SERVICE_STATUS_PROCESS ssp;
 	DWORD dwStartTime = GetTickCount();
 	DWORD dwBytesNeeded;
